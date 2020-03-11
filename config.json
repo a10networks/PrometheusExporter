@@ -1,0 +1,12 @@
+{
+"hosts":{
+"host_ip": {
+		"username": "uname goes here",
+		"password": "pwd goes here"
+	}
+},
+"log":{
+"log_file":"logs.log",
+"log_level":"DEBUG"
+}
+}
