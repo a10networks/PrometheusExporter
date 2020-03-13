@@ -84,9 +84,7 @@ def generic_exporter():
     response = json.loads(
         requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
     try:
-        key = list(response.keys())[0]
-        event = response.get(key)
-        stats = event.get("stats", {})
+        stats = response.get(list(response.keys())[0]).get("stats", {})
     except Exception as e:
         logger.exception(e)
         return api_endpoint + " have something missing."
@@ -101,6 +99,7 @@ def generic_exporter():
             dictmetrics[api_name + UNDERSCORE + key] = Gauge(api_name + UNDERSCORE + key,
                                                              "api-" + api_name + "key-" + key,
                                                              labelnames=(["data"]), )
+            logger.info("metric created -" + api_name + UNDERSCORE + key)
             # Gauge will be created with unique identifier as combination of ("api_name_key_name")
         data = {api_name: key}
         dictmetrics[api_name + UNDERSCORE + key].labels(data).set(stats[org_key])
@@ -119,8 +118,7 @@ def main():
 
 if __name__ == '__main__':
     with open('config.json') as f:
-        data = json.load(f)
-        data = data["log"]
+        data = json.load(f)["log"]
     try:
         logger = set_logger(data["log_file"], data["log_level"])
     except Exception as e:
