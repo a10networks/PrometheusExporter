@@ -65,15 +65,18 @@ def getauth(ip):
 
 
 def execute(ip):
-    list = postdatatoapi(ip)
-    createyml(ip, list)
-    runexporter()
+    if ip:
+        list = postdatatoapi(ip)
+        createyml(ip, list)
+        runexporter()
+    else:
+        print("Host not provided, exiting")
+        sys.exit()
 
 
 def runexporter():
     with open('config.json') as f:
-        data = json.load(f)
-        data = data["log"]
+        data = json.load(f)["log"]
     try:
         Exp4.logger = Exp4.set_logger(data["log_file"], data["log_level"])
     except Exception as e:
