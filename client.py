@@ -1,4 +1,3 @@
-import os
 import sys
 import json
 import requests
@@ -48,8 +47,7 @@ scrape_configs:
 
 def getauth(ip):
     with open('config.json') as f:
-        data = json.load(f)
-        data = data["hosts"]
+        data = json.load(f)["hosts"]
     if ip not in data:
         print("Host credentials not found in creds config")
         return ''
@@ -90,7 +88,6 @@ def runexporter():
 
 def postdatatoapi(ip):
     list = getapilist(ip)
-    count = len(list)
     for api in list:
         json = getformat(ip, api)
 
