@@ -19,6 +19,21 @@ app = Flask(__name__)
 
 _INF = float("inf")
 
+token = ''
+
+
+def get_valid_token(host_ip):
+    global token
+    endpoint = "http://{host_ip}/axapi/v3".format(host_ip=host_ip)
+    headers = {'content-type': 'application/json', 'Authorization': token}
+    response = json.loads(
+        requests.get(endpoint + "/authentication", headers=headers, verify=False).content.decode('UTF-8'))
+    jsons = json.dumps(response)
+    if jsons.find('response') != -1:
+        if response['response'] and response['response']['err'] and response['response']['err']['msg'] == 'Unauthorized':
+            token = getauth(host_ip)
+    return token
+
 
 def set_logger(log_file, log_level):
     try:
@@ -71,20 +86,19 @@ def generic_exporter():
     host_ip = request.args["host_ip"]
     api_endpoint = request.args["api_endpoint"]
     api_name = request.args["api_name"]
-    token = getauth(host_ip)
+    token2 = get_valid_token(host_ip)
     logger.info("Host - " + host_ip + "\n" +
                 "Api - " + api_name + "\t" + "endpoint - " + api_endpoint + "\n")
-    if token == '':
-        logger.error("Username, password does not match, token can not be empty, exiting")
-        sys.exit()
 
     endpoint = "http://{host_ip}/axapi/v3".format(host_ip=host_ip)
-    headers = {'content-type': 'application/json', 'Authorization': token}
-    logger.info("Uri - "+endpoint + api_endpoint + "/stats")
+    headers = {'content-type': 'application/json', 'Authorization': token2}
+    logger.info("Uri - " + endpoint + api_endpoint + "/stats")
     response = json.loads(
         requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
     try:
-        stats = response.get(list(response.keys())[0]).get("stats", {})
+        key = list(response.keys())[0]
+        event = response.get(key)
+        stats = event.get("stats", {})
     except Exception as e:
         logger.exception(e)
         return api_endpoint + " have something missing."
@@ -99,7 +113,6 @@ def generic_exporter():
             dictmetrics[api_name + UNDERSCORE + key] = Gauge(api_name + UNDERSCORE + key,
                                                              "api-" + api_name + "key-" + key,
                                                              labelnames=(["data"]), )
-            logger.info("metric created -" + api_name + UNDERSCORE + key)
             # Gauge will be created with unique identifier as combination of ("api_name_key_name")
         data = {api_name: key}
         dictmetrics[api_name + UNDERSCORE + key].labels(data).set(stats[org_key])
@@ -112,13 +125,13 @@ def generic_exporter():
 
 
 def main():
-
     app.run(debug=True, port=7070)
 
 
 if __name__ == '__main__':
     with open('config.json') as f:
-        data = json.load(f)["log"]
+        data = json.load(f)
+        data = data["log"]
     try:
         logger = set_logger(data["log_file"], data["log_level"])
     except Exception as e:
