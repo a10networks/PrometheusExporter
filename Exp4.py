@@ -1,5 +1,7 @@
 import json
 import sys
+from threading import Lock
+
 import prometheus_client
 import requests
 import urllib3
@@ -19,20 +21,22 @@ app = Flask(__name__)
 
 _INF = float("inf")
 
-token = ''
+lock1 = Lock()
+tokens = dict()
 
 
-def get_valid_token(host_ip):
-    global token
-    endpoint = "http://{host_ip}/axapi/v3".format(host_ip=host_ip)
-    headers = {'content-type': 'application/json', 'Authorization': token}
-    response = json.loads(
-        requests.get(endpoint + "/authentication", headers=headers, verify=False).content.decode('UTF-8'))
-    jsons = json.dumps(response)
-    if jsons.find('response') != -1:
-        if response['response'] and response['response']['err'] and response['response']['err']['msg'] == 'Unauthorized':
-            token = getauth(host_ip)
-    return token
+def get_valid_token(host_ip, to_call=False):
+    global tokens
+    lock1.acquire()
+    try:
+        if host_ip in tokens and not to_call:
+            return tokens[host_ip]
+        else:
+            if host_ip not in tokens or to_call:
+                tokens[host_ip] = getauth(host_ip)
+        return tokens[host_ip]
+    finally:
+        lock1.release()
 
 
 def set_logger(log_file, log_level):
@@ -87,20 +91,28 @@ def generic_exporter():
     api_endpoint = request.args["api_endpoint"]
     api_name = request.args["api_name"]
     token2 = get_valid_token(host_ip)
+
+    print(token2)
     logger.info("Host - " + host_ip + "\n" +
                 "Api - " + api_name + "\t" + "endpoint - " + api_endpoint + "\n")
 
     endpoint = "http://{host_ip}/axapi/v3".format(host_ip=host_ip)
     headers = {'content-type': 'application/json', 'Authorization': token2}
     logger.info("Uri - " + endpoint + api_endpoint + "/stats")
+
     response = json.loads(
         requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
+
+    if 'response' in response:
+        if response['response']['err']['msg'] == 'Unauthorized':
+            get_valid_token(host_ip, True)
+
     try:
         key = list(response.keys())[0]
         event = response.get(key)
         stats = event.get("stats", {})
-    except Exception as e:
-        logger.exception(e)
+    except Exception as ex:
+        logger.exception(ex)
         return api_endpoint + " have something missing."
 
     logger.info("name = " + api_name)
@@ -114,8 +126,9 @@ def generic_exporter():
                                                              "api-" + api_name + "key-" + key,
                                                              labelnames=(["data"]), )
             # Gauge will be created with unique identifier as combination of ("api_name_key_name")
-        data = {api_name: key}
-        dictmetrics[api_name + UNDERSCORE + key].labels(data).set(stats[org_key])
+        data2 = {api_name: key}
+        print(data2)
+        dictmetrics[api_name + UNDERSCORE + key].labels(data2).set(stats[org_key])
         endpoint_labels[api_name] = dictmetrics
 
     res = []
