@@ -51,7 +51,7 @@ def set_logger(log_file, log_level):
                 'WARN': logging.WARN,
                 'ERROR': logging.ERROR,
                 'CRITICAL': logging.CRITICAL,
-            }[log_level.upper()])
+            }[log_level.upper()])  # log levels are in order, DEBUG includes logging at each level
     except Exception as e:
         print('Error while setting logger config::%s', e)
 
@@ -105,14 +105,15 @@ def generic_exporter():
     response = json.loads(
         requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
 
-    if 'err' in response:
-        logger.error("Requuest for api failed -" + api_name + " reponse - " + response)
+    if 'response' in response and 'err' in response['response']:
+        msg = response['response']['err']['msg']
+        if str(msg).lower().__contains__("uri not found"):
+            logger.error("Request for api failed -" + api_endpoint + ", response - " + msg)
 
-    if 'response' in response:
-        if response['response']['err']['msg'] == 'Unauthorized':
+        elif str(msg).lower().__contains__("unauthorized"):
             token2 = get_valid_token(host_ip, True)
             headers = {'content-type': 'application/json', 'Authorization': token2}
-            logger.info("Re executing api -" + endpoint + api_endpoint + "with new token")
+            logger.info("Re-executing an api -" + endpoint + api_endpoint + "with the new token")
             response = json.loads(
                 requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
 
@@ -152,14 +153,13 @@ def main():
 
 if __name__ == '__main__':
     with open('config.json') as f:
-        data = json.load(f)
-        data = data["log"]
-    try:
-        logger = set_logger(data["log_file"], data["log_level"])
-    except Exception as e:
-        print("Config file is not correct")
-        print(e)
-        sys.exit()
-
+        try:
+            data = json.load(f)
+            data = data["log"]
+            logger = set_logger(data["log_file"], data["log_level"])
+        except Exception as e:
+            print("Config file is not correct")
+            print(e)
+            sys.exit()
     logger.info("Starting exporter")
     main()
