@@ -115,20 +115,20 @@ def generic_exporter():
         logger.exception(ex)
         return api_endpoint + " have something missing."
 
+    api = str(api_name)
+    if api.startswith("_"):
+        api = api[1:]
+    print(api)
+
     logger.info("name = " + api_name)
 
     for key in stats:
         org_key = key
         if HYPHEN in key:
             key = key.replace(HYPHEN, UNDERSCORE)
-        if api_name + UNDERSCORE + key not in dictmetrics:
-            dictmetrics[api_name + UNDERSCORE + key] = Gauge(api_name + UNDERSCORE + key,
-                                                             "api-" + api_name + "key-" + key,
-                                                             labelnames=(["data"]), )
-            # Gauge will be created with unique identifier as combination of ("api_name_key_name")
-        data2 = {api_name: key}
-        print(data2)
-        dictmetrics[api_name + UNDERSCORE + key].labels(data2).set(stats[org_key])
+        if key not in dictmetrics:
+            dictmetrics[key] = Gauge(key, "api-" + api_name + "key-" + key, labelnames=(["data"]), )
+        dictmetrics[key].labels(api).set(stats[org_key])
         endpoint_labels[api_name] = dictmetrics
 
     res = []
@@ -138,7 +138,7 @@ def generic_exporter():
 
 
 def main():
-    app.run(debug=True, port=7070, host='0.0.0.0')
+    app.run(debug=True, port=7070)
 
 
 if __name__ == '__main__':
