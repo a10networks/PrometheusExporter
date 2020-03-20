@@ -76,6 +76,9 @@ def getauth(host):
         auth = json.loads(
             requests.post("https://{host}/axapi/v3/auth".format(host=host), json=payload, verify=False).content.decode(
                 'UTF-8'))
+        if 'authresponse' not in auth:
+            logger.error("Host credentials are not correct")
+            return ''
         return 'A10 ' + auth['authresponse']['signature']
 
 
@@ -92,7 +95,6 @@ def generic_exporter():
     api_name = request.args["api_name"]
     token2 = get_valid_token(host_ip)
 
-    print(token2)
     logger.info("Host - " + host_ip + "\n" +
                 "Api - " + api_name + "\t" + "endpoint - " + api_endpoint + "\n")
 
@@ -103,9 +105,16 @@ def generic_exporter():
     response = json.loads(
         requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
 
+    if 'err' in response:
+        logger.error("Requuest for api failed -" + api_name + " reponse - " + response)
+
     if 'response' in response:
         if response['response']['err']['msg'] == 'Unauthorized':
-            get_valid_token(host_ip, True)
+            token2 = get_valid_token(host_ip, True)
+            headers = {'content-type': 'application/json', 'Authorization': token2}
+            logger.info("Re executing api -" + endpoint + api_endpoint + "with new token")
+            response = json.loads(
+                requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
 
     try:
         key = list(response.keys())[0]
