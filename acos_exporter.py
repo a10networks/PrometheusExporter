@@ -53,7 +53,7 @@ def set_logger(log_file, log_level):
                 'CRITICAL': logging.CRITICAL,
             }[log_level.upper()])  # log levels are in order, DEBUG includes logging at each level
     except Exception as e:
-        print('Error while setting logger config::%s', e)
+        raise Exception('Error while setting logger config.')
 
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -64,13 +64,13 @@ def set_logger(log_file, log_level):
 
 def getauth(host):
     with open('config.json') as f:
-        data = json.load(f)["hosts"]
-    if host not in data:
+        hosts_data = json.load(f)["hosts"]
+    if host not in hosts_data:
         logger.error("Host credentials not found in creds config")
         return ''
     else:
-        uname = data[host]['username']
-        pwd = data[host]['password']
+        uname = hosts_data[host]['username']
+        pwd = hosts_data[host]['password']
 
         payload = {'Credentials': {'username': uname, 'password': pwd}}
         auth = json.loads(
@@ -93,13 +93,14 @@ def generic_exporter():
     host_ip = request.args["host_ip"]
     api_endpoint = request.args["api_endpoint"]
     api_name = request.args["api_name"]
-    token2 = get_valid_token(host_ip)
+    token = get_valid_token(host_ip)
 
-    logger.info("Host - " + host_ip + "\n" +
-                "Api - " + api_name + "\t" + "endpoint - " + api_endpoint + "\n")
+    logger.info("Host = " + host_ip + "\t" +
+                "API = " + api_name + "\t\t" +
+                "Endpoint = " + api_endpoint)
 
     endpoint = "http://{host_ip}/axapi/v3".format(host_ip=host_ip)
-    headers = {'content-type': 'application/json', 'Authorization': token2}
+    headers = {'content-type': 'application/json', 'Authorization': token}
     logger.info("Uri - " + endpoint + api_endpoint + "/stats")
 
     response = json.loads(
@@ -111,8 +112,8 @@ def generic_exporter():
             logger.error("Request for api failed -" + api_endpoint + ", response - " + msg)
 
         elif str(msg).lower().__contains__("unauthorized"):
-            token2 = get_valid_token(host_ip, True)
-            headers = {'content-type': 'application/json', 'Authorization': token2}
+            token = get_valid_token(host_ip, True)
+            headers = {'content-type': 'application/json', 'Authorization': token}
             logger.info("Re-executing an api -" + endpoint + api_endpoint + "with the new token")
             response = json.loads(
                 requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
@@ -128,7 +129,6 @@ def generic_exporter():
     api = str(api_name)
     if api.startswith("_"):
         api = api[1:]
-    print(api)
 
     logger.info("name = " + api_name)
 
@@ -142,24 +142,22 @@ def generic_exporter():
         endpoint_labels[api_name] = dictmetrics
 
     res = []
-    for name in endpoint_labels[api_name]:
-        res.append(prometheus_client.generate_latest(endpoint_labels[api_name][name]))
+    if api_name in endpoint_labels:
+        for name in endpoint_labels[api_name]:
+            res.append(prometheus_client.generate_latest(endpoint_labels[api_name][name]))
     return Response(res, mimetype="text/plain")
 
 
 def main():
-    app.run(debug=True, port=7070)
+    app.run(debug=True, port=7070, host='0.0.0.0')
 
 
 if __name__ == '__main__':
     with open('config.json') as f:
-        try:
-            data = json.load(f)
-            data = data["log"]
-            logger = set_logger(data["log_file"], data["log_level"])
-        except Exception as e:
-            print("Config file is not correct")
-            print(e)
-            sys.exit()
+        log_data = json.load(f)["log"]
+        for var in ("log_file", "log_level"):
+            if var not in log_data:
+                raise Exception(var + ":- Inappropriate field provided.")
+        logger = set_logger(log_data["log_file"], log_data["log_level"])
     logger.info("Starting exporter")
     main()
