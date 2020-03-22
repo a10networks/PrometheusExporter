@@ -3,7 +3,7 @@ import json
 import requests
 import urllib3
 from random import randint
-import Exp4
+import acos_exporter
 
 
 UNDERSCORE = "_"
@@ -76,14 +76,14 @@ def runexporter():
     with open('config.json') as f:
         data = json.load(f)["log"]
     try:
-        Exp4.logger = Exp4.set_logger(data["log_file"], data["log_level"])
+        acos_exporter.logger = acos_exporter.set_logger(data["log_file"], data["log_level"])
     except Exception as e:
         print("Config file is not correct")
         print(e)
         sys.exit()
 
-    Exp4.logger.info("Starting exporter")
-    Exp4.main()
+    acos_exporter.logger.info("Starting exporter")
+    acos_exporter.main()
 
 
 def postdatatoapi(ip):
