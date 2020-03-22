@@ -5,4 +5,4 @@ COPY . /app
 WORKDIR /app
 RUN pip3 install -r requirements.txt
 ENTRYPOINT ["python3"]
-CMD ["Exp4.py"]
+CMD ["acos_exporter.py"]
