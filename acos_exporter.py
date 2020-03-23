@@ -132,19 +132,25 @@ def generic_exporter():
 
     logger.info("name = " + api_name)
 
+    dm = dict()
+    if api_name in endpoint_labels:
+        dm = endpoint_labels[api_name]
+
     for key in stats:
         org_key = key
         if HYPHEN in key:
             key = key.replace(HYPHEN, UNDERSCORE)
         if key not in dictmetrics:
-            dictmetrics[key] = Gauge(key, "api-" + api_name + "key-" + key, labelnames=(["data"]), )
-        dictmetrics[key].labels(api).set(stats[org_key])
-        endpoint_labels[api_name] = dictmetrics
+            dm[key] = Gauge(key, "api-" + api_name + "key-" + key, labelnames=(["data"]), )
+            dm[key].labels(api_name).set(stats[org_key])
+            dictmetrics[key] = dm[key]
+        elif key in dictmetrics:
+            dictmetrics[key].labels(api_name).set(stats[org_key])
 
+    endpoint_labels[api_name] = dm
     res = []
-    if api_name in endpoint_labels:
-        for name in endpoint_labels[api_name]:
-            res.append(prometheus_client.generate_latest(endpoint_labels[api_name][name]))
+    for name in endpoint_labels[api_name]:
+        res.append(prometheus_client.generate_latest(endpoint_labels[api_name][name]))
     return Response(res, mimetype="text/plain")
 
 
