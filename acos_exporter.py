@@ -40,18 +40,22 @@ def get_valid_token(host_ip, to_call=False):
 
 
 def set_logger(log_file, log_level):
-    try:
-        logging.basicConfig(
-            filename=log_file,
-            format='%(asctime)s %(levelname)-8s %(message)s',
-            datefmt='%FT%T%z',
-            level={
+    log_levels = {
                 'DEBUG': logging.DEBUG,
                 'INFO': logging.INFO,
                 'WARN': logging.WARN,
                 'ERROR': logging.ERROR,
                 'CRITICAL': logging.CRITICAL,
-            }[log_level.upper()])  # log levels are in order, DEBUG includes logging at each level
+            }
+    if log_level.upper() not in log_levels:
+        print(log_level.upper()+" is invalid log level, setting 'DEBUG' as default.")
+        log_level = "DEBUG"
+    try:
+        logging.basicConfig(
+            filename=log_file,
+            format='%(asctime)s %(levelname)-8s %(message)s',
+            datefmt='%FT%T%z',
+            level=log_levels[log_level.upper()])  # log levels are in order, DEBUG includes logging at each level
     except Exception as e:
         raise Exception('Error while setting logger config.')
 
@@ -69,8 +73,12 @@ def getauth(host):
         logger.error("Host credentials not found in creds config")
         return ''
     else:
-        uname = hosts_data[host]['username']
-        pwd = hosts_data[host]['password']
+        uname = hosts_data[host].get('username','')
+        pwd = hosts_data[host].get('password','')
+        if not uname:
+            logger.error("username not provided.")
+        if not pwd:
+            logger.error("password not provided.")
 
         payload = {'Credentials': {'username': uname, 'password': pwd}}
         auth = json.loads(
@@ -163,11 +171,12 @@ def main():
 
 
 if __name__ == '__main__':
-    with open('config.json') as f:
-        log_data = json.load(f)["log"]
-        for var in ("log_file", "log_level"):
-            if var not in log_data:
-                raise Exception(var + ":- Inappropriate field provided.")
-        logger = set_logger(log_data["log_file"], log_data["log_level"])
-    logger.info("Starting exporter")
-    main()
+    try:
+        with open('config.json') as f:
+            log_data = json.load(f).get("log", {})
+            logger = set_logger(log_data.get("log_file","logs.log"), log_data.get("log_level","DEBUG"))
+            logger.info("Starting exporter")
+            main()
+    except Exception as e:
+        print(e)
+        sys.exit()
