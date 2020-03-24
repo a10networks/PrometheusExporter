@@ -133,8 +133,8 @@ def generic_exporter():
     logger.info("name = " + api_name)
 
     current_api_stats = dict()
-    if api_name in global_api_collection:
-        current_api_stats = global_api_collection[api_name]
+    if api in global_api_collection:
+        current_api_stats = global_api_collection[api]
 
      # This section maintains local dictionary  of stats fields against Gauge objects.
      # Code handles the duplication of key_name in time series database
