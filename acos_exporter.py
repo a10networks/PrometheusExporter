@@ -14,8 +14,8 @@ SLASH = "/"
 HYPHEN = "-"
 PLUS = "+"
 
-endpoint_labels = dict()
-dictmetrics = dict()
+global_api_collection = dict()
+global_stats = dict()
 
 app = Flask(__name__)
 
@@ -132,19 +132,29 @@ def generic_exporter():
 
     logger.info("name = " + api_name)
 
+    current_api_stats = dict()
+    if api_name in global_api_collection:
+        current_api_stats = global_api_collection[api_name]
+
+     # This section maintains local dictionary  of stats fields against Gauge objects.
+     # Code handles the duplication of key_name in time series database
+     # by referring the global dictionary of key_name and Gauge objects.
+
     for key in stats:
         org_key = key
         if HYPHEN in key:
             key = key.replace(HYPHEN, UNDERSCORE)
-        if key not in dictmetrics:
-            dictmetrics[key] = Gauge(key, "api-" + api_name + "key-" + key, labelnames=(["data"]), )
-        dictmetrics[key].labels(api).set(stats[org_key])
-        endpoint_labels[api_name] = dictmetrics
+        if key not in global_stats:
+            current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key, labelnames=(["data"]), )
+            current_api_stats[key].labels(api).set(stats[org_key])
+            global_stats[key] = current_api_stats[key]
+        elif key in global_stats:
+            global_stats[key].labels(api).set(stats[org_key])
 
+    global_api_collection[api] = current_api_stats
     res = []
-    if api_name in endpoint_labels:
-        for name in endpoint_labels[api_name]:
-            res.append(prometheus_client.generate_latest(endpoint_labels[api_name][name]))
+    for name in global_api_collection[api]:
+        res.append(prometheus_client.generate_latest(global_api_collection[api][name]))
     return Response(res, mimetype="text/plain")
 
 
