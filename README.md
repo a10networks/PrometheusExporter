@@ -37,6 +37,7 @@ Sample config.json snippet:
 }
 }
 ```
+ - host_ip: ACOS instance IP which is to be monitored
 
 #### 2) Prometheus Server
 Prometheus server is responsible for monitoring and continuous polling the stats filed that are exposed by the exporter.
