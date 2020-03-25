@@ -11,7 +11,7 @@ More details on server yaml file follows later.
 
 ## Architecture of the Prometheus setup
 
-
+![picture](img/prometheus.png)
 
 ## Components of the solution
 
