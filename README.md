@@ -75,8 +75,8 @@ Exporter invokes axAPI for port and fetches the stats fields, creates gauge metr
  - It has an in-built visualization functionality that displays the metrics information exposed by the exporter.
 - User can select the targets and get the all metrics for an end-point or can search for a specific metric by querying using Prometheus query language expression.
 - Same metrics can be visualized ina graphical form by using visualization tools like Grafana.
-- We need to add data source as Prometheus in order to display metrics in the graphical form in Grafana.
-- We can Qyery for the metrics by entering the stats field name in the query box (either in prometheus query page or graphana). eg: "curr_proxy", "total_fwd_bytes", etc
+- A data source needs to be added as Prometheus in order to display metrics in the graphical form in Grafana.
+- A metrics can be queried by entering the stats field name in the query box (either in prometheus query page or graphana). eg: "curr_proxy", "total_fwd_bytes" etc.
 - Refer [Prometheus Querying](https://prometheus.io/docs/prometheus/latest/querying/basics/) for more information.
 
 
