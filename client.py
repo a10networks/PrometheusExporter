@@ -1,5 +1,6 @@
 import sys
 import json
+import os
 import requests
 import urllib3
 from random import randint
@@ -115,7 +116,8 @@ def createyml(ip, list):
         replaced = replaced.replace("api_names_replace", api)
         ct = ct + 1
         data = data + replaced
-    file1 = open('/home/sujeet/Prometheus/prometheus-2.15.1.linux-amd64/prometheus.yml', 'w')
+    #generating prometheus.yml in current working directory
+    file1 = open(os.getcwd()+'/prometheus.yml', 'w')
     file1.write(data)
     file1.close()
 
