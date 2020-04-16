@@ -107,7 +107,7 @@ def generic_exporter():
                 "API = " + api_name + "\t\t" +
                 "Endpoint = " + api_endpoint)
 
-    endpoint = "http://{host_ip}/axapi/v3".format(host_ip=host_ip)
+    endpoint = "https://{host_ip}/axapi/v3".format(host_ip=host_ip)
     headers = {'content-type': 'application/json', 'Authorization': token}
     logger.info("Uri - " + endpoint + api_endpoint + "/stats")
 
