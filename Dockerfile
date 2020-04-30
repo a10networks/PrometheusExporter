@@ -1,6 +1,5 @@
 FROM ubuntu:latest
-RUN apt-get update
-RUN apt-get upgrade -y
+RUN apt-get update --fix-missing
 RUN apt-get install -y python3-pip python3 build-essential
 COPY . /app
 WORKDIR /app

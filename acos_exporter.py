@@ -15,7 +15,8 @@ SLASH = "/"
 HYPHEN = "-"
 PLUS = "+"
 
-log_file_size = 5*1024*1024
+LOG_FILE_SIZE = 5*1024*1024
+API_TIMEOUT = 5
 
 global_api_collection = dict()
 global_stats = dict()
@@ -60,7 +61,7 @@ def set_logger(log_file, log_level):
         log_level = "INFO"
     try:
         log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(funcName)s(%(lineno)d) %(message)s')
-        log_handler = RotatingFileHandler(log_file, maxBytes=log_file_size, backupCount=2, encoding=None,
+        log_handler = RotatingFileHandler(log_file, maxBytes=LOG_FILE_SIZE, backupCount=2, encoding=None,
                                           delay=True)
         log_handler.setFormatter(log_formatter)
         log_handler.setLevel(log_levels[log_level.upper()]) # log levels are in order, DEBUG includes logging at each level
@@ -93,9 +94,10 @@ def getauth(host):
         payload = {'Credentials': {'username': uname, 'password': pwd}}
         try:
             auth = json.loads(requests.post("https://{host}/axapi/v3/auth".format(host=host), json=payload,
-                                            verify=False, timeout=5).content.decode('UTF-8'))
+                                            verify=False, timeout=API_TIMEOUT).content.decode('UTF-8'))
         except requests.exceptions.Timeout:
-            logger.error("Connection to {host} timed out. (connect timeout=5 secs)".format(host=host))
+            logger.error("Connection to {host} timed out. (connect timeout={timeout} secs)".format(host=host,
+                                                                                                   timeout=API_TIMEOUT))
             return ''
 
         if 'authresponse' not in auth:
@@ -104,7 +106,13 @@ def getauth(host):
         return 'A10 ' + auth['authresponse']['signature']
 
 
-def get_stats(body, endpoint, host_ip, headers):
+def get_stats(api_endpoints, endpoint, host_ip, headers):
+
+    body = {
+        "batch-get-list": list()
+    }
+    for api_endpoint in api_endpoints:
+        body["batch-get-list"].append({"uri": "/axapi/v3" + api_endpoint + "/stats"})
     batch_endpoint = "/batch-get"
     logger.info("Uri - " + endpoint + batch_endpoint)
     response = json.loads(
@@ -149,13 +157,6 @@ def generic_exporter():
     partition = request.args.get("partition", "shared")
     res = []
 
-    # Generate batch API body with list of APIs provided by user.
-    body = {
-        "batch-get-list": list()
-    }
-    for api_endpoint in api_endpoints:
-        body["batch-get-list"].append({"uri": "/axapi/v3" + api_endpoint + "/stats"})
-
     # Basic validation for query params.
     if not api_endpoints:
         logger.error("api_endpoint is required.")
@@ -183,7 +184,7 @@ def generic_exporter():
     logger.info("partition - " + str(partition))
     if "shared" not in partition:
         change_partition(partition, endpoint, headers)
-        response = get_stats(body, endpoint, host_ip, headers)
+        response = get_stats(api_endpoints, endpoint, host_ip, headers)
         change_partition("shared", endpoint, headers)
     else:
         response = get_stats(body, endpoint, host_ip, headers)
