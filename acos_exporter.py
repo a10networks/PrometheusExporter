@@ -8,11 +8,14 @@ import urllib3
 from flask import Response, Flask, request
 from prometheus_client import Gauge
 import logging
+from logging.handlers import RotatingFileHandler
 
 UNDERSCORE = "_"
 SLASH = "/"
 HYPHEN = "-"
 PLUS = "+"
+
+log_file_size = 5*1024*1024
 
 global_api_collection = dict()
 global_stats = dict()
@@ -53,14 +56,14 @@ def set_logger(log_file, log_level):
                 'CRITICAL': logging.CRITICAL,
             }
     if log_level.upper() not in log_levels:
-        print(log_level.upper()+" is invalid log level, setting 'DEBUG' as default.")
-        log_level = "DEBUG"
+        print(log_level.upper()+" is invalid log level, setting 'INFO' as default.")
+        log_level = "INFO"
     try:
-        logging.basicConfig(
-            filename=log_file,
-            format='%(asctime)s %(levelname)-8s %(message)s',
-            datefmt='%FT%T%z',
-            level=log_levels[log_level.upper()])  # log levels are in order, DEBUG includes logging at each level
+        log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(funcName)s(%(lineno)d) %(message)s')
+        log_handler = RotatingFileHandler(log_file, maxBytes=log_file_size, backupCount=2, encoding=None,
+                                          delay=True)
+        log_handler.setFormatter(log_formatter)
+        log_handler.setLevel(log_levels[log_level.upper()]) # log levels are in order, DEBUG includes logging at each level
     except Exception as e:
         raise Exception('Error while setting logger config.')
 
@@ -68,6 +71,8 @@ def set_logger(log_file, log_level):
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
     logger = logging.getLogger('a10_prometheus_exporter_logger')
+    logger.setLevel(log_levels[log_level.upper()])
+    logger.addHandler(log_handler)
     return logger
 
 
@@ -99,6 +104,36 @@ def getauth(host):
         return 'A10 ' + auth['authresponse']['signature']
 
 
+def get_stats(body, endpoint, host_ip, headers):
+    batch_endpoint = "/batch-get"
+    logger.info("Uri - " + endpoint + batch_endpoint)
+    response = json.loads(
+        requests.post(endpoint+batch_endpoint, data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
+    logger.debug("AXAPI response - " + str(response))
+
+    if 'response' in response and 'err' in response['response']:
+        msg = response['response']['err']['msg']
+        if str(msg).lower().__contains__("uri not found"):
+            logger.error("Request for api failed - batch-get"  + ", response - " + msg)
+
+        elif str(msg).lower().__contains__("unauthorized"):
+            token = get_valid_token(host_ip, True)
+            if token:
+                logger.info("Re-executing an api -", endpoint+"/batch-get", " with the new token")
+                headers = {'content-type': 'application/json', 'Authorization': token}
+                response = json.loads(
+                    requests.post(endpoint+"/batch-get", data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
+        else:
+            logger.error("Unknown error message - ", msg)
+    return response
+
+
+def change_partition(partition, endpoint, headers):
+    partition_endpoint = "/active-partition/"+ str(partition)
+    logger.info("Uri - " + endpoint + partition_endpoint)
+    requests.post(endpoint + partition_endpoint, headers=headers, verify=False)
+    logger.info("Partition changed to " + partition)
+
 @app.route("/")
 def default():
     return "Please provide /metrics?query-params!"
@@ -106,91 +141,98 @@ def default():
 
 @app.route("/metrics")
 def generic_exporter():
-    logger.debug("----------------------------------------------------------------------------------------------------")
+    logger.debug("---------------------------------------------------------------------------------------------------")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     host_ip = request.args.get("host_ip","")
-    api_endpoint = request.args.get("api_endpoint", "")
-    api_name = request.args.get("api_name", "")
-    # partition = request.args.get("partition", "")
-
+    api_endpoints = request.args.getlist("api_endpoint")
+    api_names = request.args.getlist("api_name")
+    partition = request.args.get("partition", "shared")
     res = []
-    if not api_endpoint:
+
+    # Generate batch API body with list of APIs provided by user.
+    body = {
+        "batch-get-list": list()
+    }
+    for api_endpoint in api_endpoints:
+        body["batch-get-list"].append({"uri": "/axapi/v3" + api_endpoint + "/stats"})
+
+    # Basic validation for query params.
+    if not api_endpoints:
         logger.error("api_endpoint is required.")
         return Response(res, mimetype="text/plain")
     if not host_ip:
-        logger.error("host_ip is required. Exiting API endpoint - ", api_endpoint)
+        logger.error("host_ip is required. Exiting API endpoint - ", api_endpoints)
         return Response(res, mimetype="text/plain")
-    if not api_name:
-        logger.error("api_name is required.")    # return empty
+    if not api_names:
+        logger.error("api_name is required.")
         return Response(res, mimetype="text/plain")
-
-    token = get_valid_token(host_ip)
+    if len(api_names) != len(api_endpoints):
+        logger.error("No of API names provided does not match with no of API endpoints.")
+        return Response(res, mimetype="text/plain")
 
     logger.info("Host = " + host_ip + "\t" +
-                "API = " + api_name)
-    logger.info("Endpoint = " + api_endpoint)
+                "API = " + str(api_names))
+    logger.info("Endpoint = " + str(api_endpoints))
 
+    # Building request URL and header.
+    token = get_valid_token(host_ip)
     endpoint = "https://{host_ip}/axapi/v3".format(host_ip=host_ip)
     headers = {'content-type': 'application/json', 'Authorization': token}
-    logger.info("Uri - " + endpoint + api_endpoint + "/stats")
 
-    response = json.loads(
-        requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
-    logger.debug("AXAPI response - ", response)
+    # Changing Partition if provided.
+    logger.info("partition - " + str(partition))
+    if "shared" not in partition:
+        change_partition(partition, endpoint, headers)
+        response = get_stats(body, endpoint, host_ip, headers)
+        change_partition("shared", endpoint, headers)
+    else:
+        response = get_stats(body, endpoint, host_ip, headers)
 
-    if 'response' in response and 'err' in response['response']:
-        msg = response['response']['err']['msg']
-        if str(msg).lower().__contains__("uri not found"):
-            logger.error("Request for api failed -" + api_endpoint + ", response - " + msg)
+    api_counter = 0
+    batch_list = response["batch-get-list"]
+    for response in batch_list:
+        api_endpoint = api_endpoints[api_counter]
+        api_name = api_names[api_counter]
+        logger.info("name = " + api_name)
+        api_response = response["resp"]
 
-        elif str(msg).lower().__contains__("unauthorized"):
-            token = get_valid_token(host_ip, True)
-            if token:
-                logger.info("Re-executing an api -", endpoint, api_endpoint + "/stats", " with the new token")
-                headers = {'content-type': 'application/json', 'Authorization': token}
-                response = json.loads(
-                    requests.get(endpoint + api_endpoint + "/stats", headers=headers, verify=False).content.decode('UTF-8'))
-        else:
-            logger.error("Unknown error message - ", msg)
+        api_counter += 1
+        try:
+            key = list(api_response.keys())[0]
+            event = api_response.get(key)
+            logger.debug("event - " + str(event))
+            stats = event.get("stats", {})
+        except Exception as ex:
+            logger.exception(ex)
+            return api_endpoint + " has something missing."
 
-    try:
-        key = list(response.keys())[0]
-        event = response.get(key)
-        logger.debug("event - " + str(event))
-        stats = event.get("stats", {})
-    except Exception as ex:
-        logger.exception(ex)
-        return api_endpoint + " has something missing."
+        api = str(api_name)
+        if api.startswith("_"):
+            api = api[1:]
 
-    api = str(api_name)
-    if api.startswith("_"):
-        api = api[1:]
+        current_api_stats = dict()
+        if api in global_api_collection:
+            current_api_stats = global_api_collection[api]
 
-    logger.info("name = " + api_name)
+         # This section maintains local dictionary  of stats fields against Gauge objects.
+         # Code handles the duplication of key_name in time series database
+         # by referring the global dictionary of key_name and Gauge objects.
 
-    current_api_stats = dict()
-    if api in global_api_collection:
-        current_api_stats = global_api_collection[api]
+        for key in stats:
+            org_key = key
+            if HYPHEN in key:
+                key = key.replace(HYPHEN, UNDERSCORE)
+            if key not in global_stats:
+                current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key, labelnames=(["data"]), )
+                current_api_stats[key].labels(api).set(stats[org_key])
+                global_stats[key] = current_api_stats[key]
+            elif key in global_stats:
+                global_stats[key].labels(api).set(stats[org_key])
 
-     # This section maintains local dictionary  of stats fields against Gauge objects.
-     # Code handles the duplication of key_name in time series database
-     # by referring the global dictionary of key_name and Gauge objects.
+        global_api_collection[api] = current_api_stats
 
-    for key in stats:
-        org_key = key
-        if HYPHEN in key:
-            key = key.replace(HYPHEN, UNDERSCORE)
-        if key not in global_stats:
-            current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key, labelnames=(["data"]), )
-            current_api_stats[key].labels(api).set(stats[org_key])
-            global_stats[key] = current_api_stats[key]
-        elif key in global_stats:
-            global_stats[key].labels(api).set(stats[org_key])
-
-    global_api_collection[api] = current_api_stats
-
-    for name in global_api_collection[api]:
-        res.append(prometheus_client.generate_latest(global_api_collection[api][name]))
+        for name in global_api_collection[api]:
+            res.append(prometheus_client.generate_latest(global_api_collection[api][name]))
     logger.debug("Final Response - " + str(res))
     return Response(res, mimetype="text/plain")
 
@@ -203,7 +245,7 @@ if __name__ == '__main__':
     try:
         with open('config.json') as f:
             log_data = json.load(f).get("log", {})
-            logger = set_logger(log_data.get("log_file","logs.log"), log_data.get("log_level","INFO"))
+            logger = set_logger(log_data.get("log_file","exporter.log"), log_data.get("log_level","INFO"))
             logger.info("Starting exporter")
             main()
     except Exception as e:
