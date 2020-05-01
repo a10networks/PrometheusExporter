@@ -107,32 +107,35 @@ def getauth(host):
 
 
 def get_stats(api_endpoints, endpoint, host_ip, headers):
+    try:
+        body = {
+            "batch-get-list": list()
+        }
+        for api_endpoint in api_endpoints:
+            body["batch-get-list"].append({"uri": "/axapi/v3" + api_endpoint + "/stats"})
+        batch_endpoint = "/batch-get"
+        logger.info("Uri - " + endpoint + batch_endpoint)
+        response = json.loads(
+            requests.post(endpoint+batch_endpoint, data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
+        logger.debug("AXAPI response - " + str(response))
 
-    body = {
-        "batch-get-list": list()
-    }
-    for api_endpoint in api_endpoints:
-        body["batch-get-list"].append({"uri": "/axapi/v3" + api_endpoint + "/stats"})
-    batch_endpoint = "/batch-get"
-    logger.info("Uri - " + endpoint + batch_endpoint)
-    response = json.loads(
-        requests.post(endpoint+batch_endpoint, data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
-    logger.debug("AXAPI response - " + str(response))
+        if 'response' in response and 'err' in response['response']:
+            msg = response['response']['err']['msg']
+            if str(msg).lower().__contains__("uri not found"):
+                logger.error("Request for api failed - batch-get"  + ", response - " + msg)
 
-    if 'response' in response and 'err' in response['response']:
-        msg = response['response']['err']['msg']
-        if str(msg).lower().__contains__("uri not found"):
-            logger.error("Request for api failed - batch-get"  + ", response - " + msg)
-
-        elif str(msg).lower().__contains__("unauthorized"):
-            token = get_valid_token(host_ip, True)
-            if token:
-                logger.info("Re-executing an api -", endpoint+"/batch-get", " with the new token")
-                headers = {'content-type': 'application/json', 'Authorization': token}
-                response = json.loads(
-                    requests.post(endpoint+"/batch-get", data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
-        else:
-            logger.error("Unknown error message - ", msg)
+            elif str(msg).lower().__contains__("unauthorized"):
+                token = get_valid_token(host_ip, True)
+                if token:
+                    logger.info("Re-executing an api -", endpoint+"/batch-get", " with the new token")
+                    headers = {'content-type': 'application/json', 'Authorization': token}
+                    response = json.loads(
+                        requests.post(endpoint+"/batch-get", data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
+            else:
+                logger.error("Unknown error message - ", msg)
+    except Exception as e:
+        logger.error("Exception caught - ", e)
+        response = ""
     return response
 
 
@@ -187,7 +190,7 @@ def generic_exporter():
         response = get_stats(api_endpoints, endpoint, host_ip, headers)
         change_partition("shared", endpoint, headers)
     else:
-        response = get_stats(body, endpoint, host_ip, headers)
+        response = get_stats(api_endpoints, endpoint, host_ip, headers)
 
     api_counter = 0
     batch_list = response["batch-get-list"]
