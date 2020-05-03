@@ -117,7 +117,7 @@ def get_stats(api_endpoints, endpoint, host_ip, headers):
         logger.info("Uri - " + endpoint + batch_endpoint)
         response = json.loads(
             requests.post(endpoint+batch_endpoint, data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
-        logger.debug("AXAPI response - " + str(response))
+        logger.debug("AXAPI batch response - " + str(response))
 
         if 'response' in response and 'err' in response['response']:
             msg = response['response']['err']['msg']
@@ -137,6 +137,12 @@ def get_stats(api_endpoints, endpoint, host_ip, headers):
         logger.error("Exception caught - ", e)
         response = ""
     return response
+
+
+def get_partition(endpoint, headers):
+    partition_endpoint = "/active-partition"
+    response = json.loads(requests.get(endpoint + partition_endpoint, headers=headers, verify=False).content.decode('UTF-8'))
+    logger.info("partition - "+str(response))
 
 
 def change_partition(partition, endpoint, headers):
@@ -184,30 +190,35 @@ def generic_exporter():
     headers = {'content-type': 'application/json', 'Authorization': token}
 
     # Changing Partition if provided.
-    logger.info("partition - " + str(partition))
+    get_partition(endpoint, headers)
     if "shared" not in partition:
-        change_partition(partition, endpoint, headers)
-        response = get_stats(api_endpoints, endpoint, host_ip, headers)
-        change_partition("shared", endpoint, headers)
+        try:
+            change_partition(partition, endpoint, headers)
+            response = get_stats(api_endpoints, endpoint, host_ip, headers)
+        finally:
+            pass
+            # change_partition("shared", endpoint, headers)
     else:
         response = get_stats(api_endpoints, endpoint, host_ip, headers)
 
     api_counter = 0
-    batch_list = response["batch-get-list"]
+    batch_list = response.get("batch-get-list", [])
     for response in batch_list:
         api_endpoint = api_endpoints[api_counter]
         api_name = api_names[api_counter]
         logger.info("name = " + api_name)
-        api_response = response["resp"]
-
+        api_response = response.get("resp", {})
+        logger.debug("API \"{}\" Response - {}".format(api_name, str(api_response)))
         api_counter += 1
         try:
             key = list(api_response.keys())[0]
-            event = api_response.get(key)
-            logger.debug("event - " + str(event))
-            stats = event.get("stats", {})
+            event = api_response.get(key, {})
+            if type(event) == dict and "stats" in event:
+                stats = event.get("stats", {})
+            else:
+                raise Exception("Stats not found in API response.")
         except Exception as ex:
-            logger.exception(ex)
+            logger.exception(ex.args[0])
             return api_endpoint + " has something missing."
 
         api = str(api_name)
