@@ -142,7 +142,7 @@ def get_stats(api_endpoints, endpoint, host_ip, headers):
 def get_partition(endpoint, headers):
     partition_endpoint = "/active-partition"
     response = json.loads(requests.get(endpoint + partition_endpoint, headers=headers, verify=False).content.decode('UTF-8'))
-    logger.info("partition - "+str(response))
+    return "partition - "+str(response)
 
 
 def change_partition(partition, endpoint, headers):
@@ -190,14 +190,10 @@ def generic_exporter():
     headers = {'content-type': 'application/json', 'Authorization': token}
 
     # Changing Partition if provided.
-    get_partition(endpoint, headers)
+    logger.debug(get_partition(endpoint, headers))
     if "shared" not in partition:
-        try:
-            change_partition(partition, endpoint, headers)
-            response = get_stats(api_endpoints, endpoint, host_ip, headers)
-        finally:
-            pass
-            # change_partition("shared", endpoint, headers)
+        change_partition(partition, endpoint, headers)
+        response = get_stats(api_endpoints, endpoint, host_ip, headers)
     else:
         response = get_stats(api_endpoints, endpoint, host_ip, headers)
 
