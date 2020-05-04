@@ -148,7 +148,10 @@ def get_partition(endpoint, headers):
 def change_partition(partition, endpoint, headers):
     partition_endpoint = "/active-partition/"+ str(partition)
     logger.info("Uri - " + endpoint + partition_endpoint)
-    requests.post(endpoint + partition_endpoint, headers=headers, verify=False)
+    try:
+        requests.post(endpoint + partition_endpoint, headers=headers, verify=False)
+    except Exception as e:
+        logger.exception(e)
     logger.info("Partition changed to " + partition)
 
 @app.route("/")
