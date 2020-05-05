@@ -40,7 +40,7 @@ def get_valid_token(host_ip, to_call=False):
             if host_ip not in tokens or to_call:
                 token = getauth(host_ip)
             if not token:
-                logger.error("Token not received.")
+                logger.error("Auth token not received.")
                 return ""
             tokens[host_ip] = token
         return tokens[host_ip]
@@ -127,10 +127,10 @@ def get_stats(api_endpoints, endpoint, host_ip, headers):
             elif str(msg).lower().__contains__("unauthorized"):
                 token = get_valid_token(host_ip, True)
                 if token:
-                    logger.info("Re-executing an api -", endpoint+"/batch-get", " with the new token")
+                    logger.info("Re-executing an api -", endpoint+batch_endpoint, " with the new token")
                     headers = {'content-type': 'application/json', 'Authorization': token}
                     response = json.loads(
-                        requests.post(endpoint+"/batch-get", data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
+                        requests.post(endpoint+batch_endpoint, data=json.dumps(body), headers=headers, verify=False).content.decode('UTF-8'))
             else:
                 logger.error("Unknown error message - ", msg)
     except Exception as e:
@@ -172,16 +172,16 @@ def generic_exporter():
     # Basic validation for query params.
     if not api_endpoints:
         logger.error("api_endpoint is required.")
-        return Response(res, mimetype="text/plain")
+        return "api_endpoint is required."
     if not host_ip:
-        logger.error("host_ip is required. Exiting API endpoint - ", api_endpoints)
-        return Response(res, mimetype="text/plain")
+        logger.error("host_ip is required. Exiting API endpoints - {}".format(api_endpoints))
+        return "host_ip is required. Exiting API endpoints - {}".format(api_endpoints)
     if not api_names:
         logger.error("api_name is required.")
-        return Response(res, mimetype="text/plain")
+        return "api_name is required."
     if len(api_names) != len(api_endpoints):
         logger.error("No of API names provided does not match with no of API endpoints.")
-        return Response(res, mimetype="text/plain")
+        return "No of API names provided does not match with no of API endpoints."
 
     logger.info("Host = " + host_ip + "\t" +
                 "API = " + str(api_names))
@@ -189,6 +189,8 @@ def generic_exporter():
 
     # Building request URL and header.
     token = get_valid_token(host_ip)
+    if not token:
+        return "Auth token not received."
     endpoint = "https://{host_ip}/axapi/v3".format(host_ip=host_ip)
     headers = {'content-type': 'application/json', 'Authorization': token}
 
@@ -218,7 +220,7 @@ def generic_exporter():
             if type(event) == dict and "stats" in event:
                 stats = event.get("stats", {})
             else:
-                raise Exception("Stats not found in API response.")
+                logger.error("Stats not found for API name '{}' response.".format(api_name) )
         except Exception as ex:
             logger.exception(ex.args[0])
             return api_endpoint + " has something missing."
