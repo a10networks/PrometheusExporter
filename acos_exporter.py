@@ -195,8 +195,11 @@ def generic_exporter():
     # Changing Partition if provided.
     logger.debug(get_partition(endpoint, headers))
     if "shared" not in partition:
-        change_partition(partition, endpoint, headers)
-        response = get_stats(api_endpoints, endpoint, host_ip, headers)
+        try:
+            change_partition(partition, endpoint, headers)
+            response = get_stats(api_endpoints, endpoint, host_ip, headers)
+        finally:
+            change_partition("shared", endpoint, headers)
     else:
         response = get_stats(api_endpoints, endpoint, host_ip, headers)
 
@@ -237,11 +240,11 @@ def generic_exporter():
             if HYPHEN in key:
                 key = key.replace(HYPHEN, UNDERSCORE)
             if key not in global_stats:
-                current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key, labelnames=(["data"]), )
-                current_api_stats[key].labels(api).set(stats[org_key])
+                current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key, labelnames=(["data", "partition", "host"]), )
+                current_api_stats[key].labels(data=api, partition=partition, host=host_ip).set(stats[org_key])
                 global_stats[key] = current_api_stats[key]
             elif key in global_stats:
-                global_stats[key].labels(api).set(stats[org_key])
+                global_stats[key].labels(data=api, partition=partition, host=host_ip).set(stats[org_key])
 
         global_api_collection[api] = current_api_stats
 
