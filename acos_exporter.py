@@ -190,7 +190,7 @@ def generic_exporter():
     # Building request URL and header.
     token = get_valid_token(host_ip)
     if not token:
-        return "Auth token not received."
+        return "Authentication token not received."
     endpoint = "https://{host_ip}/axapi/v3".format(host_ip=host_ip)
     headers = {'content-type': 'application/json', 'Authorization': token}
 
@@ -210,7 +210,7 @@ def generic_exporter():
     for response in batch_list:
         api_endpoint = api_endpoints[api_counter]
         api_name = api_names[api_counter]
-        logger.info("name = " + api_name)
+        logger.debug("name = " + api_name)
         api_response = response.get("resp", {})
         logger.debug("API \"{}\" Response - {}".format(api_name, str(api_response)))
         api_counter += 1
@@ -243,11 +243,12 @@ def generic_exporter():
             if HYPHEN in key:
                 key = key.replace(HYPHEN, UNDERSCORE)
             if key not in global_stats:
-                current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key, labelnames=(["data", "partition", "host"]), )
-                current_api_stats[key].labels(data=api, partition=partition, host=host_ip).set(stats[org_key])
+                current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key,
+                                               labelnames=(["api_name", "partition", "host"]), )
+                current_api_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(stats[org_key])
                 global_stats[key] = current_api_stats[key]
             elif key in global_stats:
-                global_stats[key].labels(data=api, partition=partition, host=host_ip).set(stats[org_key])
+                global_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(stats[org_key])
 
         global_api_collection[api] = current_api_stats
 
