@@ -38,6 +38,8 @@ Sample config.json snippet:
 }
 ```
  - host_ip: ACOS instance IP which is to be monitored
+ - log_level: set log level to debug for debugging purposes. Default log_level id set to INFO.
+ 
 
 #### 2) Prometheus Server
 Prometheus server is responsible for monitoring and continuous polling the stats filed that are exposed by the exporter.
@@ -58,14 +60,18 @@ global:
     metrics_path: '/metrics'    
     params:
         host_ip: ["10.43.12.122"]
-        api_endpoint: ["/slb/server/demo_test/port/80+tcp"]
-        api_name: ["_slb_server_demo_test_port_80_tcp"]           
+        api_endpoint: ["/slb/dns", "/slb/virtual-server/10.10.10.2/port/80+tcp", "/slb/fix"]
+        api_name: ["_slb_dns", "_slb_virtual_server_10.10.10.2_port_80_tcp", "_slb_fix"]
+	partition: ["P1"]
+	
 ```       
    
 - scrape_interval: time interval for querying stats fields
-- api_endpoint: URI endpoint that exporter will intercept and invoke the appropriate axAPI
 - target: hostname and port that exporter is running on
- 
+- api_endpoint: URI endpoint that exporter will intercept and invoke the appropriate axAPI. A comma seperated list of APIs can be provided here for a single host.
+- api_name: API name any name used to indentify the API endpoint. Comma seperated list of api_name should be in synch with api_endpoint list
+- partition: Name of the partition. This is optional parameter. If not specified, shared partition will be used. 
+
 In this scenario, once Prometheus server is started, it invokes a custom exporter after each 15sec, as specified in the scraping interval.
 api_endpoint and api_name (unique identifier for a job) are passed to the exporter as parameters.
 Exporter invokes axAPI for port and fetches the stats fields, creates gauge metrics for each stats field and exposes the metrics to Prometheus server.
