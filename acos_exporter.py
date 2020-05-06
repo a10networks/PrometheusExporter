@@ -220,8 +220,8 @@ def generic_exporter():
             if type(event) == dict and "stats" in event:
                 stats = event.get("stats", {})
             else:
-                logger.error("Stats not found for API name '{}' response.".format(api_name) )
-                continue
+                logger.error("Stats not found for API name '{}' with response {}.".format(api_name, api_response))
+                return "Stats not found for API name '{}' with response {}.".format(api_name, api_response)
         except Exception as ex:
             logger.exception(ex.args[0])
             return api_endpoint + " has something missing."
