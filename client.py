@@ -15,7 +15,7 @@ PLUS = "+"
 job = '''
   - job_name: 'name_replace'
     static_configs:
-    - targets: ['localhost:7070']
+    - targets: ['localhost:9734']
     metrics_path: '/metrics'    
     params:
         host_ip: ["ip_replace"]

@@ -6,7 +6,7 @@
 - The Prometheus server works on a pull-based model and periodically queries the exporter based on interval specified. It runs by default on port 9090. 
 - End users/systems can directly communicate with the Prometheus server or create and view dashboards using a visualization/analytics tools like Grafana.
 - The exporter can be configured to communicate with multiple ACOS devices in a multi-cloud environment. More details on configuration follows later.
-- The exporter supports querying of any stats API as configured in Prometheus server yaml file. Gauge metrics are created for each stats field and are exposed on the port 7070 by the exporter.
+- The exporter supports querying of any stats API as configured in Prometheus server yaml file. Gauge metrics are created for each stats field and are exposed on the port 9734 by the exporter.
 More details on server yaml file follows later. 
 
 ## Architecture of the Prometheus setup
@@ -20,7 +20,7 @@ More details on server yaml file follows later.
 - Invokes ACOS axAPIs to fetch the stats fields.
 - Exposes the queried stats in the form of Prometheus metrics.
 - It follows the principle of URL intercepting. The URLs need to be specified in the Prometheus server’s configuration file. The specified axAPI is invoked as per the url name.
-- Exporter creates a Gauge metrics for each stats field and exposes the same on the port 7070
+- Exporter creates a Gauge metrics for each stats field and exposes the same on the port 9734
 
 Sample config.json snippet:
 ```
@@ -56,7 +56,7 @@ global:
  
   - job_name: 'prometheus_job_6'
     static_configs:
-    - targets: ['localhost:7070']
+    - targets: ['localhost:9734']
     metrics_path: '/metrics'    
     params:
         host_ip: ["10.43.12.122"]
@@ -112,7 +112,7 @@ docker build -t <image_name>:<tag> .
 Run the exporter using the below command. Replace the placeholder <local_path_to_config.json> with local path to config.json
  
  ```
-docker run -d -p 7070:7070 -v <local_path_to_config.json>:/app/config.json <image_name>:<tag>
+docker run -d -p 9734:9734 -v <local_path_to_config.json>:/app/config.json <image_name>:<tag>
 ```
 
 To inspect the logs please follow below commands.

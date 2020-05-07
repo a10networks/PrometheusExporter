@@ -259,7 +259,7 @@ def generic_exporter():
 
 
 def main():
-    app.run(debug=True, port=7070, host='0.0.0.0')
+    app.run(debug=True, port=9734, host='0.0.0.0')
 
 
 if __name__ == '__main__':
