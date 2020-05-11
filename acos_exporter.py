@@ -1,4 +1,5 @@
 import json
+import yaml
 import sys
 from threading import Lock
 
@@ -78,8 +79,8 @@ def set_logger(log_file, log_level):
 
 
 def getauth(host):
-    with open('config.json') as f:
-        hosts_data = json.load(f)["hosts"]
+    with open('config.yml') as f:
+        hosts_data = yaml.safe_load(f)["hosts"]
     if host not in hosts_data:
         logger.error("Host credentials not found in creds config")
         return ''
@@ -264,8 +265,8 @@ def main():
 
 if __name__ == '__main__':
     try:
-        with open('config.json') as f:
-            log_data = json.load(f).get("log", {})
+        with open('config.yml') as f:
+            log_data = yaml.safe_load(f).get("log", {})
             logger = set_logger(log_data.get("log_file","exporter.log"), log_data.get("log_level","INFO"))
             logger.info("Starting exporter")
             main()

@@ -22,20 +22,16 @@ More details on server yaml file follows later.
 - It follows the principle of URL intercepting. The URLs need to be specified in the Prometheus server’s configuration file. The specified axAPI is invoked as per the url name.
 - Exporter creates a Gauge metrics for each stats field and exposes the same on the port 9734
 
-Sample config.json snippet:
+Sample config.yml snippet:
 ```
-{
-"hosts":{
-"{host_ip}": {
-		"username": "{username}",
-		"password": "{password}"
-	}
-},
-"log":{
-"log_file":{log_file_name},
-"log_level":"{log_level}"
-}
-}
+---
+hosts:
+  <host_ip goes here>:
+    username: <uname goes here>
+    password: <pwd goes here>
+log:
+  log_file: logs.log
+  log_level: INFO
 ```
  - host_ip: ACOS instance IP which is to be monitored
  - log_level: set log level to debug for debugging purposes. Default log_level id set to INFO.
@@ -109,10 +105,10 @@ Currently the container needs to be built locally using following command
 docker build -t <image_name>:<tag> .
 ```
 
-Run the exporter using the below command. Replace the placeholder <local_path_to_config.json> with local path to config.json
+Run the exporter using the below command. Replace the placeholder <local_path_to_config.yml> with local path to config.yml
  
  ```
-docker run -d -p 9734:9734 -v <local_path_to_config.json>:/app/config.json <image_name>:<tag>
+docker run -d -p 9734:9734 -v <local_path_to_config.yml>:/app/config.yml <image_name>:<tag>
 ```
 
 To inspect the logs please follow below commands.
