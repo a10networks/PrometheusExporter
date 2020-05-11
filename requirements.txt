@@ -1,3 +1,4 @@
 flask
 requests
 prometheus_client
+pyyaml
