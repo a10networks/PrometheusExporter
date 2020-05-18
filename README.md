@@ -102,7 +102,7 @@ git clone https://github.com/a10networks/PrometheusExporter
 Currently the container needs to be built locally using following command
  
 ```
-docker build -t <image_name>:<tag> .
+docker build --no-cache -t <image_name>:<tag> .
 ```
 
 Run the exporter using the below command. Replace the placeholder <local_path_to_config.yml> with local path to config.yml
