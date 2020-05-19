@@ -89,6 +89,7 @@ The exporter can be run as a standalone python script, built into a container.
 #### Running as a standalone script 
 ```
 pip install -r requirements.txt
+python acos_exporter.py
 ```
 
 #### Running as a container
@@ -120,7 +121,7 @@ Create config.yaml as specified in section 1 above.
 
 Add Helm Repo to local setup
 ```
-helm repo add a10-prometheus-exporter https://a10networks.github.io/prometheus-exporter-helm/
+helm repo add a10-prometheus-exporter https://a10networks.github.io/acos-prometheus-exporter-helm-chart/
 ```
 Install the package to local 
 ```
@@ -130,3 +131,30 @@ Check the Status using kubectl command
 ```
 kubectl get all
 ``` 
+
+Sample prometheus.yml config snippet for automatic service descovery in Kubernetes:
+
+```
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  - job_name: 'prometheus_job_6'
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - default
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: prometheus-exporter-svc
+    - source_labels: [__meta_kubernetes_pod_host_ip]
+      target_label: __address__
+      replacement: ${1}:30101
+    metrics_path: '/metrics'
+    params:
+      host_ip: ["10.43.12.122"]
+      api_endpoint: ["/slb/dns"]
+      api_name: ["_slb_dns"]
+```
