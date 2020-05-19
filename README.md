@@ -93,22 +93,12 @@ pip install -r requirements.txt
 
 Running as a container
 
-In order to use the exporter as a container, clone the github repo https://github.com/a10networks/PrometheusExporter
- 
-```
-git clone https://github.com/a10networks/PrometheusExporter
-```
-
-Currently the container needs to be built locally using following command
- 
-```
-docker build --no-cache -t <image_name>:<tag> .
-```
+In order to use the exporter as a container, an image from docker hub can be used directly.
 
 Run the exporter using the below command. Replace the placeholder <local_path_to_config.yml> with local path to config.yml
  
  ```
-docker run -d -p 9734:9734 -v <local_path_to_config.yml>:/app/config.yml <image_name>:<tag>
+docker run -d -p 9734:9734 -v <local_path_to_config.yml>:/app/config.yml a10networks/acos-prometheus-exporter:latest
 ```
 
 To inspect the logs please follow below commands.
