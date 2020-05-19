@@ -86,12 +86,12 @@ Exporter invokes axAPI for port and fetches the stats fields, creates gauge metr
 
 The exporter can be run as a standalone python script, built into a container. 
 
-Running as a standalone script <Sujeet>
+#### Running as a standalone script 
 ```
 pip install -r requirements.txt
 ```
 
-Running as a container
+#### Running as a container
 
 In order to use the exporter as a container, an image from docker hub can be used directly.
 
@@ -113,5 +113,11 @@ Replace the placeholder <container ID> with the container id from the above comm
 docker exec -it <container-ID> bash
 tail -f logs.log
 ```
+#### Running on Kubernetes using Helm Charts
+Exporter can be run in Kubernetes using Helm charts published publically by running following commands.
+Create config.yaml as specified in section 1 above.
 
+ ```
+heml istall 
 
+```
