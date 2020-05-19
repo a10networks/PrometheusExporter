@@ -113,8 +113,8 @@ Replace the placeholder <container ID> with the container id from the above comm
 docker exec -it <container-ID> bash
 tail -f logs.log
 ```
-#### Running on Kubernetes using Helm Charts
-Exporter can be run in Kubernetes using Helm charts published publically by running following commands.
+#### Running on Kubernetes using Helm package
+Exporter can be run in Kubernetes using Helm package published publically by running following commands.
 Create config.yaml as specified in section 1 above.
 
 
