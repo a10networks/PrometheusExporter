@@ -50,7 +50,7 @@ global:
   scrape_interval:     15s
   evaluation_interval: 15s
  
-  - job_name: 'prometheus_job_6'
+  - job_name: 'acos-scraper-job'
     static_configs:
     - targets: ['localhost:9734']
     metrics_path: '/metrics'    
@@ -139,7 +139,7 @@ Sample prometheus.yml config snippet for automatic service descovery in Kubernet
 global:
   scrape_interval:     15s
   evaluation_interval: 15s
-  - job_name: 'prometheus_job_6'
+  - job_name: 'acos-scraper-job'
     kubernetes_sd_configs:
     - role: endpoints
       namespaces:
