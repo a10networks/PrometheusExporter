@@ -124,7 +124,7 @@ helm repo add a10-prometheus-exporter https://a10networks.github.io/prometheus-e
 ```
 Install the package to local 
 ```
-helm install a10-prometheus-exporter/acos-prometheus-exporter --version 0.1.0
+helm install --name a10-prometheus-exporter a10-prometheus-exporter/acos-prometheus-exporter --set-file config=config.yaml
 ```
 Check the Status using kubectl command
 ```
