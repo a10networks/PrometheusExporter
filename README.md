@@ -70,7 +70,32 @@ global:
 In this scenario, once Prometheus server is started, it invokes a custom exporter after each 15sec, as specified in the scraping interval.
 api_endpoint and api_name (unique identifier for a job) are passed to the exporter as parameters.
 Exporter invokes axAPI for port and fetches the stats fields, creates gauge metrics for each stats field and exposes the metrics to Prometheus server.
- 
+
+Sample prometheus.yml config snippet for automatic service descovery in Kubernetes:
+```
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  - job_name: 'acos-scraper-job'
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - default
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: prometheus-exporter-svc
+    - source_labels: [__meta_kubernetes_pod_host_ip]
+      target_label: __address__
+      replacement: ${1}:30101
+    metrics_path: '/metrics'
+    params:
+      host_ip: ["10.43.12.122"]
+      api_endpoint: ["/slb/dns"]
+      api_name: ["_slb_dns"]
+```
+
 #### 3) Visualization tool:
 - Prometheus UI runs on port 9090 by default.
  - It has an in-built visualization functionality that displays the metrics information exposed by the exporter.
@@ -113,8 +138,8 @@ Replace the placeholder <container ID> with the container id from the above comm
 docker exec -it <container-ID> bash
 tail -f logs.log
 ```
-#### Running on Kubernetes using Helm package
-Exporter can be run in Kubernetes using Helm package published publically by running following commands.
+#### Running on Kubernetes/OpenShift using Helm package
+Exporter can be run in Kubernetes/OpenShift using Helm package published publically by running following commands.
 Create config.yaml as specified in section 1 above.
 
 
@@ -124,36 +149,16 @@ helm repo add a10-prometheus-exporter https://a10networks.github.io/acos-prometh
 ```
 Install the package to local 
 ```
-helm install --name a10-prometheus-exporter a10-prometheus-exporter/acos-prometheus-exporter --set-file config=config.yaml
+helm install --name a10-prometheus-exporter a10-prometheus-exporter/acos-prometheus-exporter-helm-chart --set-file config=config.yaml
 ```
-Check the Status using kubectl command
+Check the Status using kubectl command for Kubernetes
 ```
 kubectl get all
 ``` 
 
-Sample prometheus.yml config snippet for automatic service descovery in Kubernetes:
+OR
 
+Check the Status using oc command for OpenShift
 ```
-
-global:
-  scrape_interval:     15s
-  evaluation_interval: 15s
-  - job_name: 'acos-scraper-job'
-    kubernetes_sd_configs:
-    - role: endpoints
-      namespaces:
-        names:
-        - default
-    relabel_configs:
-    - source_labels: [__meta_kubernetes_service_name]
-      action: keep
-      regex: prometheus-exporter-svc
-    - source_labels: [__meta_kubernetes_pod_host_ip]
-      target_label: __address__
-      replacement: ${1}:30101
-    metrics_path: '/metrics'
-    params:
-      host_ip: ["10.43.12.122"]
-      api_endpoint: ["/slb/dns"]
-      api_name: ["_slb_dns"]
-```
+oc get all
+``` 
