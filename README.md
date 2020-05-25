@@ -39,7 +39,7 @@ log:
   log_level: INFO
 ```
  - host_ip: ACOS instance IP which is to be monitored
- - log_level: set log level to debug for debugging purposes. Default log_level id set to INFO.
+ - log_level: Set log_level to DEBUG for debugging purpose. Default log_level is INFO.
  
 
 #### 2) Prometheus Server
