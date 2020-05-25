@@ -1,12 +1,18 @@
-# Prometheus exporter module for ACOS devices:
+## ACOS Prometheus Exporter
+The ACOS Prometheus Exporter module collects the ACOS device statistics (stats) and displays the results as metrics.
 
-- The ACOS Prometheus exporter module is responsible for collecting ACOS device stats as metrics. 
-- Any visualization client like Grafana can be configured to query the stats from Prometheus server, plot them, set thresholds, configure alerts, create heat maps, generate tables etc. as needed to analyze the ACOS stats.
-- The Prometheus server works on a pull-based model and periodically queries the exporter based on interval specified. It runs by default on port 9090. 
-- End users/systems can directly communicate with the Prometheus server or create and view dashboards using a visualization/analytics tools like Grafana.
-- The exporter can be configured to communicate with multiple ACOS devices in a multi-cloud environment. More details on configuration follows later.
-- The exporter supports querying of any stats API as configured in Prometheus server yaml file. Gauge metrics are created for each stats field and are exposed on the port 9734 by the exporter.
-More details on server yaml file follows later. 
+To analyze the ACOS stats, configure any visualization client, such as, Grafana, to query the stats from the Prometheus server, plot them, set thresholds, configure alerts, create heat maps, generate table, and perform similar functions, as needed.
+
+The Prometheus server works on a pull-based model and periodically queries the Exporter based on the intervals specified.  It runs by default on port 9090.
+
+Users and systems can:
+- Create and view dashboards by communicating with the Prometheus server using a Visualization and Analytics tool, like Grafana.
+- Configure the Exporter to communicate with multiple ACOS devices in a multi-cloud environment. 
+- Query any API stats configured in the Prometheus server’s YAML file. 
+
+  The Exporter creates gauge metrics for each stats field and exposes them on port 9734.
+
+More information on the configuration and the server YAML file will follow soon.
 
 ## Architecture of the Prometheus setup
 
@@ -33,7 +39,7 @@ log:
   log_level: INFO
 ```
  - host_ip: ACOS instance IP which is to be monitored
- - log_level: set log level to debug for debugging purposes. Default log_level id set to INFO.
+ - log_level: Set log_level to DEBUG for debugging purpose. Default log_level is INFO.
  
 
 #### 2) Prometheus Server
@@ -139,26 +145,40 @@ docker exec -it <container-ID> bash
 tail -f logs.log
 ```
 #### Running on Kubernetes/OpenShift using Helm package
-Exporter can be run in Kubernetes/OpenShift using Helm package published publically by running following commands.
-Create config.yaml as specified in section 1 above.
+Exporter can be run in Kubernetes/OpenShift using Helm package published on Artifact HUB by running following commands.
 
+Create config.yaml as specified below.
 
-Add Helm Repo to local setup
 ```
-helm repo add a10-prometheus-exporter https://a10networks.github.io/acos-prometheus-exporter-helm-chart/
+hosts:
+  <host_ip goes here>:
+    username: <uname goes here>
+    password: <pwd goes here>
+log:
+  log_file: logs.log
+  log_level: INFO
 ```
-Install the package to local 
-```
-helm install --name a10-prometheus-exporter a10-prometheus-exporter/acos-prometheus-exporter-helm-chart --set-file config=config.yaml
-```
-Check the Status using kubectl command for Kubernetes
-```
-kubectl get all
-``` 
+- host_ip: ACOS instance IP which is to be monitored
+- log_level: Set log_level to DEBUG for debugging purpose. Default log_level is INFO.
+ 
 
-OR
+To use the Helm package, run the following commands.
 
-Check the Status using oc command for OpenShift
-```
-oc get all
-``` 
+- Add Helm Repo to the local setup:
+    ```
+    helm repo add a10-prometheus-exporter https://a10networks.github.io/prometheus-exporter-helm/
+    ```
+- Install the package on the local setup:
+    ```
+    helm install --name a10-prometheus-exporter a10-prometheus-exporter/acos-prometheus-exporter --set-file config=config.yaml
+    ```
+To check the status, use one of the following commands:
+
+- For Kubernetes, use the  **kubectl** command:
+    ```
+    kubectl get all
+    ``` 
+- For OpenShift, use the  **oc** command: 
+    ```
+    oc get all
+    ``` 
