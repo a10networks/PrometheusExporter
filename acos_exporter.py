@@ -77,6 +77,15 @@ def set_logger(log_file, log_level):
     logger.addHandler(log_handler)
     return logger
 
+def getLabelNameFromA10URL(api_list):
+    empty_list = list()
+    for api in api_list:
+        labelName = api.replace(SLASH, UNDERSCORE)
+        labelName = labelName.replace(HYPHEN, UNDERSCORE)
+        labelName = labelName.replace(PLUS, UNDERSCORE)
+        empty_list.append(labelName)   
+    return empty_list
+
 
 def getauth(host):
     with open('config.yml') as f:
@@ -107,13 +116,16 @@ def getauth(host):
         return 'A10 ' + auth['authresponse']['signature']
 
 
-def get_stats(api_endpoints, endpoint, host_ip, headers):
+
+
+def get(api_endpoints, endpoint, host_ip, headers):
     try:
         body = {
             "batch-get-list": list()
         }
         for api_endpoint in api_endpoints:
-            body["batch-get-list"].append({"uri": "/axapi/v3" + api_endpoint + "/stats"})
+            body["batch-get-list"].append({"uri": "/axapi/v3" + api_endpoint })
+          
         batch_endpoint = "/batch-get"
         logger.info("Uri - " + endpoint + batch_endpoint)
         response = json.loads(
@@ -166,45 +178,38 @@ def generic_exporter():
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     host_ip = request.args.get("host_ip","")
     api_endpoints = request.args.getlist("api_endpoint")
-    api_names = request.args.getlist("api_name")
+    if not api_endpoints:
+        with open("apis.txt") as file:
+            default_endpoint = file.readlines()   
+            default_endpoint = [endpoint.strip() for endpoint in default_endpoint]
+        api_endpoints = default_endpoint
+        logger.error("api_endpoint are of default")
+        
+    api_names = getLabelNameFromA10URL(api_endpoints)
     partition = request.args.get("partition", "shared")
     res = []
-
-    # Basic validation for query params.
-    if not api_endpoints:
-        logger.error("api_endpoint is required.")
-        return "api_endpoint is required."
     if not host_ip:
         logger.error("host_ip is required. Exiting API endpoints - {}".format(api_endpoints))
         return "host_ip is required. Exiting API endpoints - {}".format(api_endpoints)
-    if not api_names:
-        logger.error("api_name is required.")
-        return "api_name is required."
-    if len(api_names) != len(api_endpoints):
-        logger.error("No of API names provided does not match with no of API endpoints.")
-        return "No of API names provided does not match with no of API endpoints."
-
+   
     logger.info("Host = " + host_ip + "\t" +
                 "API = " + str(api_names))
     logger.info("Endpoint = " + str(api_endpoints))
-
-    # Building request URL and header.
     token = get_valid_token(host_ip)
     if not token:
         return "Authentication token not received."
     endpoint = "https://{host_ip}/axapi/v3".format(host_ip=host_ip)
     headers = {'content-type': 'application/json', 'Authorization': token}
 
-    # Changing Partition if provided.
     logger.debug(get_partition(endpoint, headers))
     if "shared" not in partition:
         try:
             change_partition(partition, endpoint, headers)
-            response = get_stats(api_endpoints, endpoint, host_ip, headers)
+            response = get(api_endpoints, endpoint, host_ip, headers)
         finally:
             change_partition("shared", endpoint, headers)
     else:
-        response = get_stats(api_endpoints, endpoint, host_ip, headers)
+        response = get(api_endpoints, endpoint, host_ip, headers)
 
     api_counter = 0
     batch_list = response.get("batch-get-list", [])
@@ -219,7 +224,10 @@ def generic_exporter():
             key = list(api_response.keys())[0]
             event = api_response.get(key, {})
             if type(event) == dict and "stats" in event:
-                stats = event.get("stats", {})
+                resp_data = event.get("stats", {})
+
+            elif type(event) == dict and "rate" in event:
+                resp_data = event.get("rate",{})
             else:
                 logger.error("Stats not found for API name '{}' with response {}.".format(api_name, api_response))
                 return "Stats not found for API name '{}' with response {}.".format(api_name, api_response)
@@ -235,21 +243,21 @@ def generic_exporter():
         if api in global_api_collection:
             current_api_stats = global_api_collection[api]
 
-         # This section maintains local dictionary  of stats fields against Gauge objects.
+         # This section maintains local dictionary  of stats or rate fields against Gauge objects.
          # Code handles the duplication of key_name in time series database
          # by referring the global dictionary of key_name and Gauge objects.
 
-        for key in stats:
+        for key in resp_data:
             org_key = key
             if HYPHEN in key:
                 key = key.replace(HYPHEN, UNDERSCORE)
             if key not in global_stats:
                 current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key,
                                                labelnames=(["api_name", "partition", "host"]), )
-                current_api_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(stats[org_key])
+                current_api_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(resp_data[org_key])
                 global_stats[key] = current_api_stats[key]
             elif key in global_stats:
-                global_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(stats[org_key])
+                global_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(resp_data[org_key])
 
         global_api_collection[api] = current_api_stats
 
@@ -273,3 +281,4 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
         sys.exit()
+
