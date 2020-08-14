@@ -77,14 +77,21 @@ def set_logger(log_file, log_level):
     logger.addHandler(log_handler)
     return logger
 
+
 def getLabelNameFromA10URL(api_list):
-    empty_list = list()
-    for api in api_list:
-        labelName = api.replace(SLASH, UNDERSCORE)
+    if type(api_list) == list:
+        empty_list = list()
+        for api in api_list:
+            labelName = api.replace(SLASH, UNDERSCORE)
+            labelName = labelName.replace(HYPHEN, UNDERSCORE)
+            labelName = labelName.replace(PLUS, UNDERSCORE)
+            empty_list.append(labelName)   
+        return empty_list
+    else:
+        labelName = api_list.replace(SLASH, UNDERSCORE)
         labelName = labelName.replace(HYPHEN, UNDERSCORE)
         labelName = labelName.replace(PLUS, UNDERSCORE)
-        empty_list.append(labelName)   
-    return empty_list
+        return labelName
 
 
 def getauth(host):
@@ -114,8 +121,6 @@ def getauth(host):
             logger.error("Host credentials are not correct")
             return ''
         return 'A10 ' + auth['authresponse']['signature']
-
-
 
 
 def get(api_endpoints, endpoint, host_ip, headers):
@@ -171,6 +176,65 @@ def change_partition(partition, endpoint, headers):
 def default():
     return "Please provide /metrics?query-params!"
 
+def generate_metrics(resp_data, api_name, partition, host_ip, key, res):
+    api = str(api_name)
+    if api.startswith("_"):
+        api = api[1:]
+
+    current_api_stats = dict()
+    if api in global_api_collection:
+        current_api_stats = global_api_collection[api]
+        # This section maintains local dictionary  of stats or rate fields against Gauge objects.
+        # Code handles the duplication of key_name in time series database
+        # by referring the global dictionary of key_name and Gauge objects.
+    for key in resp_data:
+        org_key = key
+        if HYPHEN in key:
+            key = key.replace(HYPHEN, UNDERSCORE)
+        if key not in global_stats:
+            current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key,
+                                            labelnames=(["api_name", "partition", "host"]), )
+            current_api_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(resp_data[org_key])
+            global_stats[key] = current_api_stats[key]
+        elif key in global_stats:
+            global_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(resp_data[org_key])
+
+    global_api_collection[api] = current_api_stats
+
+    for name in global_api_collection[api]:
+        res.append(prometheus_client.generate_latest(global_api_collection[api][name]))
+    return res
+
+
+def parse_recursion(event, api_name, api_response, partition, host_ip, key,res, recursion = False):
+    resp_data = dict()
+    if event == None:
+        return
+    if type(event) == dict and "stats" not in event and "rate" not in event:
+        for item in event:
+            parse_recursion(event[item], api_name, api_response, partition, host_ip, key,res, recursion = True)
+                               
+    elif type(event) == dict and "stats" in event:
+        resp_data = event.get("stats", {})
+        if recursion:
+            api_name_slash = event.get("a10-url", "")
+            api_name = api_name_slash.replace("/axapi/v3","")
+            api_name = getLabelNameFromA10URL(api_name)
+        res = generate_metrics(resp_data, api_name, partition, host_ip, key,res)
+        
+    elif type(event) == dict and "rate" in event:
+        resp_data = event.get("rate", {})
+        if recursion:
+            api_name_slash = event.get("a10-url", "")
+            api_name = api_name_slash.replace("/axapi/v3","")
+            api_name = getLabelNameFromA10URL(api_name)
+        res = generate_metrics(resp_data, api_name, partition, host_ip, key,res)
+        
+    else:
+        logger.error("Stats not found for API name '{}' with response {}.".format(api_name, api_response))
+        #return "Stats not found for API name '{}' with response {}.".format(api_name, api_response)
+    
+    return res
 
 @app.route("/metrics")
 def generic_exporter():
@@ -223,46 +287,11 @@ def generic_exporter():
         try:
             key = list(api_response.keys())[0]
             event = api_response.get(key, {})
-            if type(event) == dict and "stats" in event:
-                resp_data = event.get("stats", {})
-
-            elif type(event) == dict and "rate" in event:
-                resp_data = event.get("rate",{})
-            else:
-                logger.error("Stats not found for API name '{}' with response {}.".format(api_name, api_response))
-                return "Stats not found for API name '{}' with response {}.".format(api_name, api_response)
+            res = parse_recursion(event, api_name, api_response, partition, host_ip, key,res)
+                 
         except Exception as ex:
             logger.exception(ex.args[0])
             return api_endpoint + " has something missing."
-
-        api = str(api_name)
-        if api.startswith("_"):
-            api = api[1:]
-
-        current_api_stats = dict()
-        if api in global_api_collection:
-            current_api_stats = global_api_collection[api]
-
-         # This section maintains local dictionary  of stats or rate fields against Gauge objects.
-         # Code handles the duplication of key_name in time series database
-         # by referring the global dictionary of key_name and Gauge objects.
-
-        for key in resp_data:
-            org_key = key
-            if HYPHEN in key:
-                key = key.replace(HYPHEN, UNDERSCORE)
-            if key not in global_stats:
-                current_api_stats[key] = Gauge(key, "api-" + api + "key-" + key,
-                                               labelnames=(["api_name", "partition", "host"]), )
-                current_api_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(resp_data[org_key])
-                global_stats[key] = current_api_stats[key]
-            elif key in global_stats:
-                global_stats[key].labels(api_name=api, partition=partition, host=host_ip).set(resp_data[org_key])
-
-        global_api_collection[api] = current_api_stats
-
-        for name in global_api_collection[api]:
-            res.append(prometheus_client.generate_latest(global_api_collection[api][name]))
     logger.debug("Final Response - " + str(res))
     return Response(res, mimetype="text/plain")
 
