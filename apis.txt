@@ -1,6 +1,3 @@
-/axapi/v3/slb/sip/stats
-/axapi/v3/slb/mlb/stats
-/axapi/v3/slb/smtp/stats
-/axapi/v3/slb/fix/stats
-/axapi/v3/slb/service-group/http-sg/stats
-/axapi/v3/slb/server/demo_test/port/80+tcp/stats
+/system/control-cpu/stats
+/system/data-cpu/stats
+/system/memory/stats
