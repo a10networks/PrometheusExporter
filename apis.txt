@@ -1,3 +1,4 @@
+/interface/stats
 /system/control-cpu/stats
 /system/data-cpu/stats
 /system/memory/stats
