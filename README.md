@@ -70,7 +70,7 @@ global:
 - scrape_interval: time interval for querying stats fields
 - target: hostname and port that exporter is running on
 - api_endpoint: URI endpoint that exporter will intercept and invoke the appropriate axAPI. A comma seperated list of APIs can be provided here for a single host.
-- api_name: API name is used to identify the API endpoint. Comma separated list of api_name should be in synch with api_endpoint list
+- api_name: API name is used to identify the API endpoint. Comma-separated list of api_name should be in synch with api_endpoint list
 - partition: Name of the partition. This is an optional parameter. If not specified, the shared partition will be used.
 
 In this scenario, once the Prometheus server is started, it invokes a custom exporter after each 15sec, as specified in the scraping interval.
